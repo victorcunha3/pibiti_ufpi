@@ -1,22 +1,16 @@
 # CORE
 streamlit==1.35.0
-numpy==1.26.0  # Versão estável compatível com yfinance/pandas
+numpy==1.26.0
 pandas==2.1.0
 yfinance==0.2.36
 scikit-learn==1.4.0
+
+# DEPENDÊNCIAS DE VISUALIZAÇÃO
 plotly==5.18.0
 matplotlib==3.8.0
-ta==0.11.0
-tqdm==4.66.1
-yellowbrick==1.5
 
-# ANÁLISE DE DADOS
-scipy==1.11.4
-statsmodels==0.14.2
-
-# OTIMIZAÇÃO (remova se não usar)
-numba==0.59.1
-
-# UTILIDADES
-python-dateutil==2.9.0
-pytz==2025.1
+# PACOTES COM CONFLITOS (fixe essas versões)
+markdown-it-py==3.0.0
+Pygments==2.19.1
+mdurl==0.1.2
+rich==14.0.0
