@@ -53,6 +53,7 @@ def clean(data):
 # ==============================================
 # FUNÇÕES PARA OBTENÇÃO E PROCESSAMENTO DE DADOS
 # ==============================================
+@st.cache_data(ttl=3600)  # Cache de 1 hora
 def getData(ticker, inicio, fim, intervalo="1d"):
     """Obtém dados do Yahoo Finance ou de arquivo local se disponível"""
     cleanedTicker = cleanTicker(ticker)
