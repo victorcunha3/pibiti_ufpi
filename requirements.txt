@@ -1,3 +1,5 @@
+--use-pep517
+--no-build-isolation
 # CORE
 streamlit==1.35.0
 numpy==1.26.0
