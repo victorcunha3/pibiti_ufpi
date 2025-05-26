@@ -53,7 +53,7 @@ def clean(data):
 # ==============================================
 # FUNÇÕES PARA OBTENÇÃO E PROCESSAMENTO DE DADOS
 # ==============================================
-@st.cache_data(ttl=3600)  # Cache de 1 hora
+@st.cache_data
 def getData(ticker, inicio, fim, intervalo="1d"):
     """Obtém dados do Yahoo Finance ou de arquivo local se disponível"""
     cleanedTicker = cleanTicker(ticker)
@@ -162,8 +162,9 @@ def plotOutliers(data, isClose=True):
         yaxis_title="Retorno Percentual",
         height=600,
         width=1200,
-        xaxis=dict(type="date", tickformat="%Y-%m-%d"),
+        xaxis=dict(type="date", tickformat="%b %Y"),
         yaxis=dict(tickformat=".2%"),
+
     )
 
     st.plotly_chart(fig)
@@ -398,7 +399,7 @@ def plotClusters(data, labels):
             x=[centroid[0]],
             y=[centroid[1]],
             mode="markers+text",
-            marker=dict(size=15, color="white", symbol="x"),
+            marker=dict(size=15, color="pink", symbol="x"),
             text=[f"C-{i}"],
             textposition="top center",
             name=f"Centróide {i}",
@@ -406,12 +407,7 @@ def plotClusters(data, labels):
         )
 
     grafico.update_layout(
-        title={
-            "text": "Visualização dos Clusters - Explore os grupos identificados em 2 dimensões, com centróides marcados (X)",
-            "x": 0.5,
-            "xanchor": "center",
-            "yanchor": "top",
-        },
+        title="Visualização dos Clusters - Explore os grupos identificados em 2 dimensões, com centróides marcados (X)",
         width=900,
         height=600,
     )
@@ -455,12 +451,7 @@ def plotClusters3D(data, labels):
         )
 
     grafico.update_layout(
-        title={
-            "text": "Visualização dos Clusters em 3D - Analise os clusters em 3 dimensões para entender melhor suas relações espaciais.",
-            "x": 0.5,
-            "xanchor": "center",
-            "yanchor": "top",
-        },
+        title="Visualização dos Clusters em 3D - Analise os clusters em 3 dimensões para entender melhor suas relações espaciais.",
         width=900,
         height=600,
     )
@@ -502,12 +493,8 @@ def plotSupportResistance(data, modeByCluster, countByCluster, TICKER):
         )
 
     fig.update_layout(
-        title={
-            "text": "Suporte e Resistência - Principais faixas de preço onde o ativo pode encontrar dificuldade para subir (resistência) ou cair (suporte).",
-            "x": 0.5,
-            "xanchor": "center",
-            "yanchor": "top",
-        },
+        title="Suporte e Resistência - Principais faixas de preço onde o ativo pode encontrar dificuldade para subir (resistência) ou cair (suporte).",
+
         xaxis_title="Data",
         yaxis_title="Preço de Fechamento",
         width=1400,
@@ -518,175 +505,105 @@ def plotSupportResistance(data, modeByCluster, countByCluster, TICKER):
     st.plotly_chart(fig)
 
 
-def plot_candlestick(data, ticker, window):
-    """Plota gráfico de candlestick com média móvel"""
-    fig = go.Figure(data=[go.Candlestick(
-        x=data.index,
-        open=data['Open'],
-        high=data['High'],
-        low=data['Low'],
-        close=data['Close'],
-        increasing_line_color='green',
-        decreasing_line_color='red',
-        name='Candles'
-    )])
+from io import StringIO
 
-    fig.add_trace(go.Scatter(
-        x=data.index,
-        y=data['Close'].rolling(window=window).mean(),
-        line=dict(color='blue', width=1.5),
-        name=f'Média Móvel {window}'
-    ))
-
-    fig.update_layout(
-        title=f'{ticker} - Visualize o comportamento do preço ao longo do tempo com candles (verde/vermelho) e linhas de tendência (médias móveis).',
-        xaxis_title='Data',
-        yaxis_title='Preço',
-        xaxis_rangeslider_visible=False,
-        height=600,
-        width=1200,
-        template='plotly_white',
-        hovermode='x unified',
-        legend=dict(
-            orientation='h',
-            yanchor='bottom',
-            y=1.02,
-            xanchor='right',
-            x=1
-        )
-    )
-
-    st.plotly_chart(fig)
-
-
-def calculate_parabolic_sar(data, acceleration=0.02, maximum=0.2):
-    """Calcula o Parabolic SAR"""
-    high = data['High'].values
-    low = data['Low'].values
-    sar = np.zeros(len(data))
-    trend = 1  # 1 para tendência de alta, -1 para baixa
-    ep = high[0] if trend == 1 else low[0]  # Ponto extremo
-    af = acceleration  # Fator de aceleração
-
-    sar[0] = low[0] if trend == 1 else high[0]
-
-    for i in range(1, len(data)):
-        sar[i] = sar[i - 1] + af * (ep - sar[i - 1])
-
-        if trend == 1:
-            if low[i] < sar[i]:
-                trend = -1
-                sar[i] = ep
-                ep = low[i]
-                af = acceleration
-            else:
-                if high[i] > ep:
-                    ep = high[i]
-                    af = min(af + acceleration, maximum)
-        else:
-            if high[i] > sar[i]:
-                trend = 1
-                sar[i] = ep
-                ep = high[i]
-                af = acceleration
-            else:
-                if low[i] < ep:
-                    ep = low[i]
-                    af = min(af + acceleration, maximum)
-
-    return pd.Series(sar, index=data.index)
-
-
-def plot_parabolic_sar(data, ticker, acceleration=0.02, maximum=0.2):
-    """Plota gráfico com Parabolic SAR"""
-    sar = calculate_parabolic_sar(data, acceleration, maximum)
-
-    fig = go.Figure()
-
-    fig.add_trace(go.Candlestick(
-        x=data.index,
-        open=data['Open'],
-        high=data['High'],
-        low=data['Low'],
-        close=data['Close'],
-        name='Candles',
-        increasing_line_color='green',
-        decreasing_line_color='red'
-    ))
-    fig.update_yaxes(showgrid=True)
-
-    fig.add_trace(go.Scatter(
-        x=data.index,
-        y=sar,
-        mode='markers',
-        name='Parabolic SAR',
-        marker=dict(
-            color=np.where(sar < data['Close'], 'green', 'red'),
-            size=6,
-            symbol='circle'
-        )
-    ))
-
-    fig.update_layout(
-        title=f'{ticker} - Identifique possíveis pontos de reversão de tendência (marcadores) em relação ao preço atual (Parabolic SAR).',
-        xaxis_title='Data',
-        yaxis_title='Preço',
-        xaxis_rangeslider_visible=False,
-        height=600,
-        width=1200,
-        template='plotly_white',
-        hovermode='x unified',
-        legend=dict(
-            orientation='h',
-            yanchor='bottom',
-            y=1.02,
-            xanchor='right',
-            x=1
-        )
-    )
-
-    st.plotly_chart(fig)
-
+def baixar_csv(data):
+    """Converte DataFrame para CSV em memória"""
+    csv = data.to_csv(index=True, encoding='utf-8')
+    return csv
 
 # ==============================================
 # CONFIGURAÇÃO DO STREAMLIT
 # ==============================================
 def main():
     st.title("Análise de Dados Financeiros com Streamlit")
+    from datetime import date
 
-    # Sidebar inputs
     with st.sidebar:
-        st.header("Filtros")
-        ticker = st.text_input("Digite o ticker do ativo (ex: BTC-USD):", "BTC-USD")
-        start_date = st.date_input("Data de início (ex: 2024-01-01):", "2024-01-01")
-        end_date = st.date_input("Data de fim (ex: 2030-01-01):", "2030-01-01")
+        st.header("Ativos Financeiros")
+        tickers_famosos = [
+            "BTC-USD",  # Bitcoin
+            "ETH-USD",  # Ethereum
+            "VALE3.SA",  # Vale S.A.
+            "PETR4.SA",  # Petrobras
+            "AAPL",  # Apple
+            "MSFT",  # Microsoft
+            "GOOGL",  # Alphabet (Google)
+            "AMZN",  # Amazon
+            "TSLA",  # Tesla
+            "META",  # Meta (Facebook)
+            "NFLX",  # Netflix
+            "NVDA",  # Nvidia
+            "BRK-B",  # Berkshire Hathaway
+            "JNJ",  # Johnson & Johnson
+            "ITUB4.SA",  # Itaú Unibanco
+
+        ]
+
+        ticker = st.selectbox(
+            "Digite ou selecione o ticker do ativo:",
+            options=tickers_famosos,
+            index=0,
+            help="Você pode escolher um dos principais ativos ou digitar um ticker diferente"
+        )
+
+        start_date = st.date_input("Data de início", value=date(2024, 1, 1),
+                                   help="Digite ou escolha a data inicial do ativo escolhido")
+        end_date = st.date_input("Data de fim", value=date(2030, 1, 1),
+                                 help="Digite ou escolha a data final do ativo escolhido")
         interval = st.selectbox("Intervalo de tempo:", list(INTERVALLIMITS.keys()),
-                                index=list(INTERVALLIMITS.keys()).index("1d"))
+                                index=list(INTERVALLIMITS.keys()).index("1d"), help='Selecione o intervalo entre os dados (1h, 1d, 5d, etc.). Intervalos menores como 1h mostram mais detalhes, mas têm limite máximo de dias. Intervalos diários ou maiores permitem análises de longo prazo.')
+
+
+        window_rsi = st.slider("Dias para cálculo dos indicadores",
+                               min_value=5, max_value=50, value=14, step=1,help='Determine o período de cálculo para RSI e osciladores (5-50). Valores menores reagem rápido a mudanças, mas são mais voláteis. 14 é o padrão do mercado para análises de médio prazo.')
+
+        # Opções de inclusão de outliers
+        st.subheader("Opções de Outliers")
         number_contamination = st.number_input(
             "Digite o valor para a sensibilidade dos outliers:",
             min_value=0.01,
             max_value=0.5,
             value=0.05,
             step=0.01,
-            format="%.2f"
+            format="%.2f",
+            help='Defina quão sensível será a detecção de valores atípicos (0.01-0.50). Valores mais altos capturam mais outliers, mas podem incluir variações normais. 0.05 (5%) é um bom equilíbrio para a maioria dos casos.'
         )
-        window_rsi = st.slider("Período para RSI e Indicadores (window)",
-                               min_value=5, max_value=50, value=14, step=1)
-        window_mm = st.slider("Período para Média Móvel (window)",
-                              min_value=5, max_value=50, value=20, step=1)
-        include_outliers = st.checkbox(
-            "Incluir outliers nos cálculos finais",
+        st.subheader("Incluir Outliers no cálculo final")
+        include_outliers_close = st.checkbox(
+            "Incluir outliers de preço (Close)",
             value=False,
-            help="Marque esta opção se deseja que os valores considerados outliers sejam incluídos na análise de clusters"
+            help="Marque esta opção para incluir valores atípicos de preço na análise"
         )
+        include_outliers_volume = st.checkbox(
+            "Incluir outliers de volume",
+            value=False,
+            help="Marque esta opção para incluir valores atípicos de volume na análise"
+        )
+
+        # Opção original mantida para compatibilidade
+        include_outliers = st.checkbox(
+            "Incluir todos os outliers nos cálculos finais",
+            value=False,
+            help="Marque esta opção para incluir TODOS os valores atípicos na análise"
+        )
+        st.subheader("Baixar dados no formato CSV")
+
 
     # Coleta e processamento de dados
     data = getData(ticker, start_date, end_date, interval)
+    # Botão de download - adicione esta parte
+    csv = baixar_csv(data)
+
+    st.sidebar.download_button(
+        label="📥 Baixar dados como CSV",
+        data=csv,
+        file_name=f'dados_{ticker}_{start_date}_{end_date}.csv',
+        mime='text/csv',
+        help='Clique para baixar todos os dados processados em formato CSV'
+    )
 
     if not data.empty:
-        # Visualizações iniciais
-        plot_candlestick(data, ticker, window_mm)
-        plot_parabolic_sar(data, ticker)
 
         # Cálculo de métricas financeiras
         data["ReturnClose"] = data["Close"].pct_change()
@@ -727,20 +644,29 @@ def main():
         data["OutlierVolume"] = isof.fit_predict(data[["ReturnVolume"]])
 
         # Exibição dos dados
-        st.write("Dados coletados e processados:")
-        st.write(data.head())
+        #st.write("Dados coletados e processados:")
+        #st.write(data.head())
 
         # Visualização de outliers
-        st.write("Gráfico de Outliers para Retorno Percentual (Close):")
         plotOutliers(data, isClose=True)
 
-        st.write("Gráfico de Outliers para Retorno Percentual (Volume):")
         plotOutliers(data, isClose=False)
 
-        # Análise de clusters
+        # Análise de clusters - modificação para usar as novas opções
         dataFilter = data
+
+        # Determinar quais outliers incluir
+        if include_outliers:  # Se a opção original estiver marcada, inclui tudo
+            include_outliers_close = True
+            include_outliers_volume = True
+
+        # Criar condições de filtro
+        cond_close = pd.Series(True, index=data.index) if include_outliers_close else (data["OutlierClose"] != -1)
+        cond_volume = pd.Series(True, index=data.index) if include_outliers_volume else (data["OutlierVolume"] != -1)
+
         ranges = range(4, 11)
-        bestK, silhouettes, kmeans, dataOutlier = filterCombinations(dataFilter, ranges, include_outliers)
+        bestK, silhouettes, kmeans, dataOutlier = filterCombinations(dataFilter, ranges, include_outliers=(
+                    include_outliers_close or include_outliers_volume))
 
         if silhouettes is not None and not silhouettes.empty:
             st.subheader("Análise do Coeficiente de Silhueta")
