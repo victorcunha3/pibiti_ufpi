@@ -566,7 +566,7 @@ def baixar_csv(data):
 # CONFIGURAÇÃO DO STREAMLIT
 # ==============================================
 def main():
-    st.title("Análise de Dados Financeiros com Streamlit")
+    st.title("SR-KIF: Uma Ferramenta para Identificacão da Variação do Nível de Valores de Ativos Financeiros")
     from datetime import date
 
     with st.sidebar:
