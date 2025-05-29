@@ -459,25 +459,55 @@ def plotClusters3D(data, labels):
     st.plotly_chart(grafico)
 
 
-def plotSupportResistance(data, modeByCluster, countByCluster, TICKER):
-    """Plota linhas de suporte e resistência"""
+def plotSupportResistance(data, modeByCluster, countByCluster, TICKER, isCandles=False):
+    """Plota linhas de suporte e resistência com opção de gráfico de candles"""
+    # Último valor de fechamento e data correspondente
+    lastClose = data["Close"].iloc[-1]
+    lastDate = data.index[-1]
+
+    # Cria figura
     fig = go.Figure()
 
-    fig.add_trace(
-        go.Scatter(
-            x=data.index, y=data["Close"], mode="lines", name="Preço de Fechamento"
+    if isCandles:
+        # Gráfico de candles
+        fig.add_trace(
+            go.Candlestick(
+                x=data.index,
+                open=data["Open"],
+                high=data["High"],
+                low=data["Low"],
+                close=data["Close"],
+                name="Candles"
+            )
         )
-    )
+    else:
+        # Gráfico de linha com preços de fechamento
+        fig.add_trace(
+            go.Scatter(
+                x=data.index,
+                y=data["Close"],
+                mode="lines",
+                name="Preço de Fechamento",
+                line=dict(color="black", width=2)
+            )
+        )
 
-    for i, x in enumerate(modeByCluster):
+    # Ordena os pares (valor, contagem) pelo valor crescente
+    SRSorted = sorted(zip(modeByCluster, countByCluster), key=lambda x: x[0])
+
+    # Adiciona as linhas de suporte/resistência ordenadas
+    for x, count in SRSorted:
+        lineColor = "blue" if x < lastClose else "red"
+        sr = "Suporte" if x < lastClose else "Resistência"
+
         fig.add_trace(
             go.Scatter(
                 x=[data.index.min(), data.index.max()],
                 y=[x, x],
                 mode="lines",
-                name=f"Suporte/Resistência {x} ({countByCluster[i]})",
+                name=f"{sr} {x:.2f} ({count})",
                 opacity=0.8,
-                line=(dict(color="orange", dash="solid")),
+                line=dict(color=lineColor, dash="solid"),
             )
         )
 
@@ -486,26 +516,46 @@ def plotSupportResistance(data, modeByCluster, countByCluster, TICKER):
             y=x,
             text=f"{x:.2f}",
             showarrow=False,
-            font=dict(color="black", size=12),
+            font=dict(color="white", size=12),
             align="center",
-            bgcolor="orange",
+            bgcolor=lineColor,
             opacity=0.9,
         )
 
-    fig.update_layout(
-        title="Suporte e Resistência - Principais faixas de preço onde o ativo pode encontrar dificuldade para subir (resistência) ou cair (suporte).",
+    # Adiciona anotação com o preço de fechamento do último candle
+    fig.add_annotation(
+        x=lastDate,
+        y=lastClose,
+        text=f"Último Fechamento: {lastClose:.2f}",
+        showarrow=True,
+        arrowhead=1,
+        ax=0,
+        ay=-40,
+        font=dict(color="black", size=12),
+        bgcolor="lightgray",
+        bordercolor="black",
+        borderwidth=1,
+        opacity=0.95,
+    )
 
+    # Layout
+    fig.update_layout(
+        title=f"Suporte e Resistência para {TICKER} - Principais faixas de preço onde o ativo pode encontrar dificuldade para subir (resistência) ou cair (suporte).",
+        #title_x=0.5,
         xaxis_title="Data",
         yaxis_title="Preço de Fechamento",
         width=1400,
         height=600,
+        margin=dict(l=20, r=20, t=40, b=40),
         template="plotly_white",
+        xaxis=dict(rangeslider=dict(visible=False)),
+        showlegend=True,
+        legend=dict(font=dict(size=20))
     )
 
     st.plotly_chart(fig)
 
 
-from io import StringIO
 
 def baixar_csv(data):
     """Converte DataFrame para CSV em memória"""
@@ -555,7 +605,7 @@ def main():
                                 index=list(INTERVALLIMITS.keys()).index("1d"), help='Selecione o intervalo entre os dados (1h, 1d, 5d, etc.). Intervalos menores como 1h mostram mais detalhes, mas têm limite máximo de dias. Intervalos diários ou maiores permitem análises de longo prazo.')
 
 
-        window_rsi = st.slider("Dias para cálculo dos indicadores",
+        window_rsi = st.slider("Número de dias para cálculo do indicador RSI",
                                min_value=5, max_value=50, value=14, step=1,help='Determine o período de cálculo para RSI e osciladores (5-50). Valores menores reagem rápido a mudanças, mas são mais voláteis. 14 é o padrão do mercado para análises de médio prazo.')
 
         # Opções de inclusão de outliers
@@ -647,11 +697,8 @@ def main():
         #st.write("Dados coletados e processados:")
         #st.write(data.head())
 
-        # Visualização de outliers
-        plotOutliers(data, isClose=True)
 
-        plotOutliers(data, isClose=False)
-
+        #------------------------------------------------------------------------------------
         # Análise de clusters - modificação para usar as novas opções
         dataFilter = data
 
@@ -668,34 +715,15 @@ def main():
         bestK, silhouettes, kmeans, dataOutlier = filterCombinations(dataFilter, ranges, include_outliers=(
                     include_outliers_close or include_outliers_volume))
 
-        if silhouettes is not None and not silhouettes.empty:
-            st.subheader("Análise do Coeficiente de Silhueta")
-            st.write("Melhor K encontrado:", bestK)
-            st.write(
-                "Avalie quão bem definidos estão os grupos/clusters (valores mais altos indicam grupos mais distintos).")
-            plotSilhouettes(silhouettes)
+
 
         # Visualização de clusters
         if kmeans and dataOutlier is not None:
-            st.write(f"\nMelhor valor de K = {bestK}")
-            st.write(
-                f"Veja como cada ponto está alinhado com seu cluster (áreas largas e uniformes indicam bons agrupamentos).")
-
-            fig, ax = plt.subplots(figsize=(6, 2))
-            visualizer = SilhouetteVisualizer(kmeans, colors="paired", ax=ax)
-            visualizer.fit(dataOutlier)
-            ax.tick_params(axis="both", labelsize=6)
-            ax.set_title("Silhouette Plot", fontsize=7)
-            ax.set_xlabel("Coeficiente de Silhueta", fontsize=7)
-            ax.set_ylabel("Clusters", fontsize=7)
-            st.pyplot(fig)
+            
 
             dataOutlier = data.drop(columns=["Close", "OutlierClose", "OutlierVolume"])
             dataWithClusters, kmeans = assignKmeansClusters(data=dataOutlier, clusters=bestK)
             labels = kmeans.labels_
-
-            plotClusters(dataWithClusters, labels)
-            plotClusters3D(dataWithClusters, labels)
 
             dataWithoutClusters = dataWithClusters.drop(columns=["Cluster"])
             metrics = calculateClusteringMetrics(dataWithoutClusters, labels, kmeans)
@@ -721,6 +749,18 @@ def main():
                 countByCluster=countByCluster,
                 TICKER=ticker
             )
+            if silhouettes is not None and not silhouettes.empty:
+                st.subheader("Análise do Coeficiente de Silhueta")
+                st.write("Melhor K encontrado:", bestK)
+                st.write(
+                    "Avalie quão bem definidos estão os grupos/clusters (valores mais altos indicam grupos mais distintos).")
+                plotSilhouettes(silhouettes)
+            plotClusters(dataWithClusters, labels)
+            plotClusters3D(dataWithClusters, labels)
+            # Visualização de outliers
+            plotOutliers(data, isClose=True)
+
+            plotOutliers(data, isClose=False)
     else:
         st.write("Erro ao coletar dados. Verifique o ticker e as datas inseridas.")
 
